@@ -1,0 +1,13 @@
+bin/
+dist/
+coverage.out
+
+*.log
+*.tmp
+
+.DS_Store
+Thumbs.db
+
+.idea/
+.vscode/
+.codex
