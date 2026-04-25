@@ -232,6 +232,75 @@ func TestHTTPTransferExpiredSessionReturnsGone(t *testing.T) {
 	}
 }
 
+func TestHTTPTransferDirectDownloadFile(t *testing.T) {
+	h := newTransferHandler(t)
+	payload := []byte("hello direct download")
+	target := filepath.Join(h.guard.DefaultRoot, "artifact.bin")
+	if err := os.WriteFile(target, payload, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/transfer/download?file_path=artifact.bin", nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected ok, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if got := rec.Body.Bytes(); string(got) != string(payload) {
+		t.Fatalf("unexpected body: %q", string(got))
+	}
+	if rec.Header().Get("X-Transfer-Sha256") == "" {
+		t.Fatal("expected sha256 header")
+	}
+}
+
+func TestHTTPTransferDirectDownloadRejectsDirectory(t *testing.T) {
+	h := newTransferHandler(t)
+	if err := os.MkdirAll(filepath.Join(h.guard.DefaultRoot, "logs"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/transfer/download?file_path=logs", nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected bad request, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestHTTPTransferDirectUploadFile(t *testing.T) {
+	h := newTransferHandler(t)
+
+	req := httptest.NewRequest(http.MethodPut, "/transfer/upload?file_path=uploads/blob.bin&overwrite=true", bytes.NewReader([]byte("direct upload")))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected ok, got %d: %s", rec.Code, rec.Body.String())
+	}
+	got, err := os.ReadFile(filepath.Join(h.guard.DefaultRoot, "uploads", "blob.bin"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "direct upload" {
+		t.Fatalf("unexpected file contents: %q", string(got))
+	}
+}
+
+func TestHTTPTransferDirectUploadRespectsOverwriteFalse(t *testing.T) {
+	h := newTransferHandler(t)
+	target := filepath.Join(h.guard.DefaultRoot, "artifact.bin")
+	if err := os.WriteFile(target, []byte("old"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPut, "/transfer/upload?file_path=artifact.bin&overwrite=false", bytes.NewReader([]byte("new")))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("expected conflict, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
 func createUpload(t *testing.T, h HTTPTransferHandler, body map[string]any) map[string]any {
 	t.Helper()
 	payload, _ := json.Marshal(body)

@@ -25,15 +25,15 @@ func NewTransferTools(guard *filesystem.Guard, transfers *TransferManager, trans
 
 func (PrepareUpload) Name() string { return "prepare_upload" }
 func (PrepareUpload) Description() string {
-	return "Create a remote HTTP upload session for local-to-remote transfer so the local client can stream bytes without making the agent manage offsets or chunk loops."
+	return "Create a resumable remote HTTP upload session for advanced local-to-remote transfer workflows. For ordinary file uploads, prefer the direct HTTP endpoint /transfer/upload?file_path=...&overwrite=true so curl can upload the file without prepare or chunk management. If you need to upload a directory, archive it first, preferably as zip."
 }
 func (PrepareUpload) InputSchema() map[string]any {
 	return objectSchema(map[string]any{
 		"path":        stringSchema("Remote destination path on this machine."),
-		"entity_type": stringSchema("What the local source represents: file or directory."),
-		"size":        numberSchema("Total bytes that the local client will upload. For directories, this is the size of the ZIP archive that will be sent."),
+		"entity_type": stringSchema("What the local source represents: file or directory. Prefer file; for directories, archive them first on the local side, preferably as zip, and upload the archive as a file when possible."),
+		"size":        numberSchema("Total bytes that the local client will upload. If uploading a directory, this is the size of the archive bytes being sent, preferably a zip archive."),
 		"overwrite":   boolSchema("Overwrite an existing remote destination."),
-		"archive":     stringSchema("Archive format for directory uploads. Only zip is supported."),
+		"archive":     stringSchema("Archive format for directory uploads. Only zip is supported, but agents should usually avoid raw directory uploads and transfer an archive file instead."),
 	}, []string{"path", "entity_type", "size"})
 }
 func (t PrepareUpload) Call(args map[string]any) (string, any, error) {
@@ -54,11 +54,11 @@ func (t PrepareUpload) Call(args map[string]any) (string, any, error) {
 
 func (PrepareDownload) Name() string { return "prepare_download" }
 func (PrepareDownload) Description() string {
-	return "Create a remote HTTP download session for remote-to-local transfer so the local client can fetch bytes without making the agent manage offsets or chunk loops."
+	return "Create a resumable remote HTTP download session for advanced remote-to-local transfer workflows. For ordinary file downloads, prefer the direct HTTP endpoint /transfer/download?file_path=... so curl or wget can fetch the file without prepare or chunk management. If you need a directory, archive it first on the remote machine, preferably as zip."
 }
 func (PrepareDownload) InputSchema() map[string]any {
 	return objectSchema(map[string]any{
-		"path": stringSchema("Remote file or directory path on this machine."),
+		"path": stringSchema("Remote file path on this machine. Directory paths may work, but agents should usually archive directories first with remote shell commands, preferably as zip, and then download the archive file."),
 	}, []string{"path"})
 }
 func (t PrepareDownload) Call(args map[string]any) (string, any, error) {

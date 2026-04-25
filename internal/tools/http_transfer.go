@@ -130,6 +130,10 @@ func NewTransferService(guard *filesystem.Guard, transfers *TransferManager, tra
 func (h HTTPTransferHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	route := strings.TrimPrefix(r.URL.Path, "/transfer")
 	switch {
+	case r.Method == http.MethodGet && route == "/download":
+		h.downloadFile(w, r)
+	case r.Method == http.MethodPut && route == "/upload":
+		h.uploadFile(w, r)
 	case r.Method == http.MethodPost && route == "/upload-sessions":
 		h.createUploadSession(w, r)
 	case r.Method == http.MethodPut && strings.HasSuffix(route, "/chunks") && strings.HasPrefix(route, "/upload-sessions/"):
@@ -147,6 +151,108 @@ func (h HTTPTransferHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.Error(w, "not found", http.StatusNotFound)
 	}
+}
+
+func (h HTTPTransferHandler) downloadFile(w http.ResponseWriter, r *http.Request) {
+	path, err := h.guard.Resolve(r.URL.Query().Get("file_path"), false)
+	if err != nil {
+		writeTransferError(w, err)
+		return
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		writeTransferError(w, err)
+		return
+	}
+	if info.IsDir() {
+		http.Error(w, "file_path must be a file; archive directories with shell commands first", http.StatusBadRequest)
+		return
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		writeTransferError(w, err)
+		return
+	}
+	defer file.Close()
+
+	mimeType := mime.TypeByExtension(strings.ToLower(filepath.Ext(path)))
+	if mimeType == "" {
+		mimeType = "application/octet-stream"
+	}
+	meta, err := transferMetadataForPath(path)
+	if err != nil {
+		writeTransferError(w, err)
+		return
+	}
+	w.Header().Set("Content-Type", mimeType)
+	w.Header().Set("Content-Length", strconv.FormatInt(info.Size(), 10))
+	w.Header().Set("X-Transfer-Path", path)
+	w.Header().Set("X-Transfer-Sha256", meta["sha256"].(string))
+	w.Header().Set("X-Transfer-Size", strconv.FormatInt(info.Size(), 10))
+	http.ServeContent(w, r, filepath.Base(path), info.ModTime(), file)
+}
+
+func (h HTTPTransferHandler) uploadFile(w http.ResponseWriter, r *http.Request) {
+	path, err := h.guard.Resolve(r.URL.Query().Get("file_path"), false)
+	if err != nil {
+		writeTransferError(w, err)
+		return
+	}
+	overwrite, err := parseOptionalBool(r.URL.Query().Get("overwrite"), false)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if !overwrite {
+		if _, err := os.Stat(path); err == nil {
+			http.Error(w, "destination exists and overwrite is false", http.StatusConflict)
+			return
+		}
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	tmp, file, err := createTransferTemp(path, "file")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	removeTmp := true
+	defer func() {
+		if file != nil {
+			_ = file.Close()
+		}
+		if removeTmp {
+			_ = os.Remove(tmp)
+		}
+	}()
+	if _, err := io.Copy(file, r.Body); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := file.Close(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	file = nil
+	if overwrite {
+		if err := os.RemoveAll(path); err != nil && !os.IsNotExist(err) {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	removeTmp = false
+	meta, err := transferMetadataForPath(path)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, meta)
 }
 
 func (h HTTPTransferHandler) createUploadSession(w http.ResponseWriter, r *http.Request) {
@@ -967,6 +1073,17 @@ func parseNonNegativeInt64(raw string) (int64, error) {
 		return 0, fmt.Errorf("offset must be non-negative")
 	}
 	return n, nil
+}
+
+func parseOptionalBool(raw string, fallback bool) (bool, error) {
+	if strings.TrimSpace(raw) == "" {
+		return fallback, nil
+	}
+	value, err := strconv.ParseBool(raw)
+	if err != nil {
+		return false, fmt.Errorf("overwrite must be true or false")
+	}
+	return value, nil
 }
 
 func readChunkBody(r *http.Request) ([]byte, error) {

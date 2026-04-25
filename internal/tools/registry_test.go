@@ -45,7 +45,11 @@ func TestRegistryServerInstructionsIncludeRemoteContext(t *testing.T) {
 		"path_separator",
 		"default_shell",
 		"/transfer",
-		"prefer those endpoints for bulk bytes",
+		"/transfer/download?file_path=",
+		"/transfer/upload?file_path=",
+		"first use remote shell commands to create an archive",
+		"preferably zip",
+		"simple direct file transfer is preferred",
 		"All shell commands and file paths refer to the remote machine",
 	} {
 		if !strings.Contains(text, want) {
