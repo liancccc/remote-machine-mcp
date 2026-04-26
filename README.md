@@ -1,54 +1,18 @@
 # remote-machine-mcp
 
-`remote-machine-mcp` lets a local agent operate a remote Linux or Windows machine over MCP.
+`remote-machine-mcp` lets a local MCP client operate a remote Linux or Windows machine over `stdio` or HTTP.
 
-It is intended for cases such as:
-
-- connecting Codex to a VPS
-- connecting Codex to a remote Windows VM
-- running shell commands, patches, and file transfer on the remote machine without installing the full agent stack there
-
-## What It Exposes
-
-- MCP over `stdio` or HTTP
-- remote shell execution
-- long-running command sessions with `write_stdin`
-- Codex-style patch apply
-- authenticated HTTP file transfer endpoints under `/transfer`
-
-For ordinary file transfer, prefer the direct HTTP file endpoints:
-
-- download: `/transfer/download?file_path=...`
-- upload: `/transfer/upload?file_path=...&overwrite=true`
-
-These work well with `curl`, `wget`, or similar tools.
-
-If you need to transfer a directory, do not rely on raw directory transfer. Archive it first on the remote machine, preferably as `zip`, then transfer the archive file.
-
-## Release Asset Recommendation
-
-GitHub Releases should publish raw executable files directly, not compressed archives.
-
-Recommended asset names:
-
-- `remote-machine-mcp-linux-amd64`
-- `remote-machine-mcp-linux-arm64`
-- `remote-machine-mcp-darwin-amd64`
-- `remote-machine-mcp-darwin-arm64`
-- `remote-machine-mcp-windows-amd64.exe`
-- `remote-machine-mcp-windows-arm64.exe`
-
-That makes deployment simpler because users can download one file and run it immediately, without unpacking `.zip` or `.tar.gz`.
-
-## Deploy From GitHub Release
+It is meant to be a small remote execution bridge: shell, long-running sessions, patching, and file transfer helpers.
 
 Repository:
 
 - `https://github.com/liancccc/remote-machine-mcp`
 
-Latest release assets should be downloadable from:
+## Deploy
 
-- `https://github.com/liancccc/remote-machine-mcp/releases/latest/download/...`
+GitHub Releases should publish raw executable files directly, not compressed archives.
+
+Examples:
 
 ### Linux amd64
 
@@ -60,29 +24,7 @@ sudo curl -fL -o remote-machine-mcp \
 sudo chmod +x remote-machine-mcp
 ```
 
-Or with `wget`:
-
-```bash
-sudo mkdir -p /opt/remote-machine-mcp
-cd /opt/remote-machine-mcp
-sudo wget -O remote-machine-mcp \
-  https://github.com/liancccc/remote-machine-mcp/releases/latest/download/remote-machine-mcp-linux-amd64
-sudo chmod +x remote-machine-mcp
-```
-
-### Linux arm64
-
-```bash
-sudo mkdir -p /opt/remote-machine-mcp
-cd /opt/remote-machine-mcp
-sudo curl -fL -o remote-machine-mcp \
-  https://github.com/liancccc/remote-machine-mcp/releases/latest/download/remote-machine-mcp-linux-arm64
-sudo chmod +x remote-machine-mcp
-```
-
 ### Windows amd64
-
-PowerShell:
 
 ```powershell
 New-Item -ItemType Directory -Force C:\remote-machine-mcp | Out-Null
@@ -99,13 +41,12 @@ Linux example:
 
 ```bash
 cd /opt/remote-machine-mcp
-MCP_ALLOWED_ROOTS=/root ./remote-machine-mcp --listen 0.0.0.0 --port 8765 --vps YOUR_PUBLIC_IP
+./remote-machine-mcp --listen 0.0.0.0 --port 8765 --vps YOUR_PUBLIC_IP
 ```
 
 Windows example:
 
 ```powershell
-$env:MCP_ALLOWED_ROOTS='C:\Users\Administrator'
 .\remote-machine-mcp.exe --listen 0.0.0.0 --port 8765 --vps YOUR_PUBLIC_IP
 ```
 
@@ -115,69 +56,29 @@ $env:MCP_ALLOWED_ROOTS='C:\Users\Administrator'
 ./remote-machine-mcp --stdio
 ```
 
-## MCP_ALLOWED_ROOTS
+## Working Directory
 
-`MCP_ALLOWED_ROOTS` controls the default working directory and the allowed path roots.
+If `workdir` is omitted, commands run in the server process current directory.
 
-Examples:
+Relative paths are resolved from that current directory.
 
-Linux:
+## Tools
 
-```bash
-export MCP_ALLOWED_ROOTS=/root:/opt:/srv
-```
+| Tool | Description |
+| --- | --- |
+| `shell_command` | Run a shell script on the remote machine and return `stdout`, `stderr`, exit code, and timeout state. |
+| `shell` | Run an argv-style command on the remote machine. |
+| `exec_command` | Start a long-running command and return output immediately or a `session_id`. |
+| `write_stdin` | Write to an existing `exec_command` session and poll for more output. |
+| `apply_patch` | Apply a Codex-style patch on the remote machine. |
+| `prepare_upload` | Create a resumable upload session for advanced transfer workflows. |
+| `prepare_download` | Create a resumable download session for advanced transfer workflows. |
 
-Windows:
+The server also exposes authenticated HTTP file transfer endpoints under `/transfer`.
 
-```powershell
-$env:MCP_ALLOWED_ROOTS='C:\Users\llianpo;D:\work'
-```
-
-If unset, the current working directory is used.
-
-## Direct File Transfer
-
-### Download a file
-
-```bash
-curl -H "Authorization: Bearer TOKEN" \
-  -o ./artifact.zip \
-  "http://HOST:8765/transfer/download?file_path=/root/artifact.zip"
-```
-
-### Upload a file
-
-```bash
-curl -X PUT \
-  -H "Authorization: Bearer TOKEN" \
-  --data-binary @./artifact.zip \
-  "http://HOST:8765/transfer/upload?file_path=/root/artifact.zip&overwrite=true"
-```
-
-## Directory Transfer Pattern
-
-Prefer `zip`.
-
-### Remote Linux: archive a directory first
-
-```bash
-cd /root
-zip -r cateye.zip cateye
-```
-
-If `zip` is unavailable, use another installed archiver as a fallback.
-
-### Then download the archive
-
-```bash
-curl -H "Authorization: Bearer TOKEN" \
-  -o ./cateye.zip \
-  "http://HOST:8765/transfer/download?file_path=/root/cateye.zip"
-```
+For normal file transfer, prefer the direct file endpoints with `curl` or `wget`. If a directory needs to be transferred, archive it first, preferably as `zip`, then transfer the archive file.
 
 ## Local Development
-
-From the repository root:
 
 ```bash
 go test ./...

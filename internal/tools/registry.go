@@ -77,11 +77,11 @@ func (r *Registry) ServerInstructions() string {
 	}
 	hostname, _ := os.Hostname()
 	return fmt.Sprintf(
-		"You are connected to a remote machine MCP server, not the user's local machine. Remote host=%q os=%s arch=%s default_workdir=%q home=%q path_separator=%q path_list_separator=%q default_shell=%q. This server exposes authenticated HTTP transfer endpoints rooted at /transfer. Prefer the simple file endpoints /transfer/download?file_path=... and /transfer/upload?file_path=...&overwrite=true for normal file transfer because curl or wget can use them directly and MCP tools are not the path for large byte streams. If the user wants to transfer a directory, first use remote shell commands to create an archive that fits the remote OS and installed tools, preferably zip, then transfer that archive as a file. The prepare_upload and prepare_download tools remain available for advanced resumable workflows, but simple direct file transfer is preferred. All shell commands and file paths refer to the remote machine. Prefer omitting workdir unless you need a different remote directory.",
+		"You are connected to a remote machine MCP server, not the user's local machine. Remote host=%q os=%s arch=%s pwd=%q home=%q path_separator=%q path_list_separator=%q default_shell=%q. This server exposes authenticated HTTP transfer endpoints rooted at /transfer. Prefer the simple file endpoints /transfer/download?file_path=... and /transfer/upload?file_path=...&overwrite=true for normal file transfer because curl or wget can use them directly and MCP tools are not the path for large byte streams. If the user wants to transfer a directory, first use remote shell commands to create an archive that fits the remote OS and installed tools, preferably zip, then transfer that archive as a file. The prepare_upload and prepare_download tools remain available for advanced resumable workflows, but simple direct file transfer is preferred. All shell commands and file paths refer to the remote machine. If workdir is omitted, commands run in the current directory shown above.",
 		hostname,
 		runtime.GOOS,
 		runtime.GOARCH,
-		r.guard.DefaultRoot,
+		r.guard.CurrentDir,
 		r.guard.HomeDir,
 		string(os.PathSeparator),
 		string(os.PathListSeparator),
@@ -107,10 +107,10 @@ func remoteToolDescriptionPrefix(guard *filesystem.Guard) string {
 		shell = defaultShell()
 	}
 	return fmt.Sprintf(
-		"REMOTE CONTEXT: runs on the remote %s/%s machine, not the local client. Default workdir is %q; path separator is %q; default shell is %q. Use remote paths/commands for this OS.",
+		"REMOTE CONTEXT: runs on the remote %s/%s machine, not the local client. Current directory is %q; path separator is %q; default shell is %q. Use remote paths/commands for this OS.",
 		runtime.GOOS,
 		runtime.GOARCH,
-		guard.DefaultRoot,
+		guard.CurrentDir,
 		string(os.PathSeparator),
 		shell,
 	)

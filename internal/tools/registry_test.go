@@ -9,7 +9,7 @@ import (
 )
 
 func TestRegistryToolDescriptionsIncludeRemoteContext(t *testing.T) {
-	guard := &filesystem.Guard{Roots: []string{"/remote/root"}, DefaultRoot: "/remote/root"}
+	guard := &filesystem.Guard{CurrentDir: "/remote/pwd"}
 	registry := NewRegistry(guard, NewTransferManager())
 
 	for _, tool := range registry.Tools() {
@@ -18,7 +18,7 @@ func TestRegistryToolDescriptionsIncludeRemoteContext(t *testing.T) {
 			"REMOTE CONTEXT",
 			"not the local client",
 			runtime.GOOS + "/" + runtime.GOARCH,
-			`Default workdir is "/remote/root"`,
+			`Current directory is "/remote/pwd"`,
 		} {
 			if !strings.Contains(description, want) {
 				t.Fatalf("%s description missing %q:\n%s", tool.Name(), want, description)
@@ -31,7 +31,7 @@ func TestRegistryToolDescriptionsIncludeRemoteContext(t *testing.T) {
 }
 
 func TestRegistryServerInstructionsIncludeRemoteContext(t *testing.T) {
-	guard := &filesystem.Guard{Roots: []string{"/remote/root"}, DefaultRoot: "/remote/root", HomeDir: "/home/tester"}
+	guard := &filesystem.Guard{CurrentDir: "/remote/pwd", HomeDir: "/home/tester"}
 	registry := NewRegistry(guard, NewTransferManager())
 	text := registry.ServerInstructions()
 
@@ -40,7 +40,7 @@ func TestRegistryServerInstructionsIncludeRemoteContext(t *testing.T) {
 		"not the user's local machine",
 		runtime.GOOS,
 		runtime.GOARCH,
-		`default_workdir="/remote/root"`,
+		`pwd="/remote/pwd"`,
 		`home="/home/tester"`,
 		"path_separator",
 		"default_shell",
@@ -51,6 +51,7 @@ func TestRegistryServerInstructionsIncludeRemoteContext(t *testing.T) {
 		"preferably zip",
 		"simple direct file transfer is preferred",
 		"All shell commands and file paths refer to the remote machine",
+		"If workdir is omitted, commands run in the current directory shown above",
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("server instructions missing %q:\n%s", want, text)

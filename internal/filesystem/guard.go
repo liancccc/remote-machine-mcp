@@ -9,37 +9,18 @@ import (
 )
 
 type Guard struct {
-	Roots       []string
-	DefaultRoot string
-	HomeDir     string
+	CurrentDir string
+	HomeDir    string
 }
 
 func LoadAllowedRoots(raw string) (*Guard, error) {
-	if raw == "" {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return nil, err
-		}
-		raw = cwd
-	}
-	parts := strings.Split(raw, string(os.PathListSeparator))
-	roots := make([]string, 0, len(parts))
-	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		if part == "" {
-			continue
-		}
-		abs, err := filepath.Abs(filepath.Clean(part))
-		if err != nil {
-			return nil, err
-		}
-		roots = append(roots, abs)
-	}
-	if len(roots) == 0 {
-		return nil, errors.New("MCP_ALLOWED_ROOTS produced no usable roots")
+	_ = raw
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, err
 	}
 	home, _ := os.UserHomeDir()
-	return &Guard{Roots: roots, DefaultRoot: roots[0], HomeDir: home}, nil
+	return &Guard{CurrentDir: cwd, HomeDir: home}, nil
 }
 
 func (g *Guard) Resolve(path string, allowDir bool) (string, error) {
@@ -48,11 +29,11 @@ func (g *Guard) Resolve(path string, allowDir bool) (string, error) {
 	}
 	path = g.expandHome(path)
 	if runtime.GOOS != "windows" && looksLikeWindowsPath(path) {
-		return "", errors.New("path looks like a Windows path but this server is not Windows; omit workdir or use a remote path such as " + g.DefaultRoot)
+		return "", errors.New("path looks like a Windows path but this server is not Windows; omit workdir or use a remote path such as " + g.CurrentDir)
 	}
 	abs := path
 	if !filepath.IsAbs(abs) {
-		abs = filepath.Join(g.DefaultRoot, abs)
+		abs = filepath.Join(g.CurrentDir, abs)
 	}
 	abs, _ = filepath.Abs(filepath.Clean(abs))
 	if !allowDir {
@@ -85,7 +66,7 @@ func looksLikeWindowsPath(path string) bool {
 
 func (g *Guard) ResolveDir(path string) (string, error) {
 	if path == "" {
-		path = g.DefaultRoot
+		path = g.CurrentDir
 	}
 	abs, err := g.Resolve(path, true)
 	if err != nil {

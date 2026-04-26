@@ -50,7 +50,7 @@ func TestPrepareDownloadReturnsLocalHandoffPlan(t *testing.T) {
 	transfers := NewTransferManager()
 	service := NewTransferService(guard, transfers, "/transfer")
 	tool := PrepareDownload{service: service}
-	if err := os.WriteFile(filepath.Join(guard.DefaultRoot, "artifact.bin"), []byte("hello"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(guard.CurrentDir, "artifact.bin"), []byte("hello"), 0644); err != nil {
 		t.Fatal(err)
 	}
 

@@ -21,7 +21,7 @@ import (
 func testGuard(t *testing.T) *filesystem.Guard {
 	t.Helper()
 	root := t.TempDir()
-	return &filesystem.Guard{Roots: []string{root}, DefaultRoot: root}
+	return &filesystem.Guard{CurrentDir: root}
 }
 
 func newTransferHandler(t *testing.T) HTTPTransferHandler {
@@ -45,7 +45,7 @@ func TestHTTPTransferUploadFileLifecycle(t *testing.T) {
 	uploadChunk(t, h, upload["upload_id"].(float64), 4, []byte("456789"))
 	completeUpload(t, h, upload["upload_id"].(float64), "")
 
-	got, err := os.ReadFile(filepath.Join(h.guard.DefaultRoot, "uploads", "blob.bin"))
+	got, err := os.ReadFile(filepath.Join(h.guard.CurrentDir, "uploads", "blob.bin"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +67,7 @@ func TestHTTPTransferUploadFileOutOfOrder(t *testing.T) {
 	uploadChunk(t, h, upload["upload_id"].(float64), 0, []byte("0123"))
 	completeUpload(t, h, upload["upload_id"].(float64), "")
 
-	got, err := os.ReadFile(filepath.Join(h.guard.DefaultRoot, "uploads", "blob.bin"))
+	got, err := os.ReadFile(filepath.Join(h.guard.CurrentDir, "uploads", "blob.bin"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +92,7 @@ func TestHTTPTransferRejectsIncompleteUploadAndAllowsAbort(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("expected incomplete finalize to fail, got %d: %s", rec.Code, rec.Body.String())
 	}
-	tmp := findUploadTemp(t, h.guard.DefaultRoot)
+	tmp := findUploadTemp(t, h.guard.CurrentDir)
 	if tmp == "" {
 		t.Fatal("expected upload temp file to remain after failed finalize")
 	}
@@ -135,7 +135,7 @@ func TestHTTPTransferRejectsChecksumMismatch(t *testing.T) {
 func TestHTTPTransferDownloadResumable(t *testing.T) {
 	h := newTransferHandler(t)
 	payload := []byte("0123456789")
-	if err := os.WriteFile(filepath.Join(h.guard.DefaultRoot, "artifact.bin"), payload, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(h.guard.CurrentDir, "artifact.bin"), payload, 0644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -153,10 +153,10 @@ func TestHTTPTransferDownloadResumable(t *testing.T) {
 
 func TestHTTPTransferDownloadDirectoryZip(t *testing.T) {
 	h := newTransferHandler(t)
-	if err := os.MkdirAll(filepath.Join(h.guard.DefaultRoot, "logs", "nested"), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(h.guard.CurrentDir, "logs", "nested"), 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(h.guard.DefaultRoot, "logs", "nested", "out.txt"), []byte("ok"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(h.guard.CurrentDir, "logs", "nested", "out.txt"), []byte("ok"), 0644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -184,7 +184,7 @@ func TestHTTPTransferUploadDirectoryZip(t *testing.T) {
 	uploadChunk(t, h, upload["upload_id"].(float64), 0, archive)
 	completeUpload(t, h, upload["upload_id"].(float64), "")
 
-	data, err := os.ReadFile(filepath.Join(h.guard.DefaultRoot, "restored", "nested", "out.txt"))
+	data, err := os.ReadFile(filepath.Join(h.guard.CurrentDir, "restored", "nested", "out.txt"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -195,7 +195,7 @@ func TestHTTPTransferUploadDirectoryZip(t *testing.T) {
 
 func TestHTTPTransferRejectsOverwriteFalse(t *testing.T) {
 	h := newTransferHandler(t)
-	target := filepath.Join(h.guard.DefaultRoot, "artifact.bin")
+	target := filepath.Join(h.guard.CurrentDir, "artifact.bin")
 	if err := os.WriteFile(target, []byte("old"), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -235,7 +235,7 @@ func TestHTTPTransferExpiredSessionReturnsGone(t *testing.T) {
 func TestHTTPTransferDirectDownloadFile(t *testing.T) {
 	h := newTransferHandler(t)
 	payload := []byte("hello direct download")
-	target := filepath.Join(h.guard.DefaultRoot, "artifact.bin")
+	target := filepath.Join(h.guard.CurrentDir, "artifact.bin")
 	if err := os.WriteFile(target, payload, 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -256,7 +256,7 @@ func TestHTTPTransferDirectDownloadFile(t *testing.T) {
 
 func TestHTTPTransferDirectDownloadRejectsDirectory(t *testing.T) {
 	h := newTransferHandler(t)
-	if err := os.MkdirAll(filepath.Join(h.guard.DefaultRoot, "logs"), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(h.guard.CurrentDir, "logs"), 0755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -277,7 +277,7 @@ func TestHTTPTransferDirectUploadFile(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected ok, got %d: %s", rec.Code, rec.Body.String())
 	}
-	got, err := os.ReadFile(filepath.Join(h.guard.DefaultRoot, "uploads", "blob.bin"))
+	got, err := os.ReadFile(filepath.Join(h.guard.CurrentDir, "uploads", "blob.bin"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -288,7 +288,7 @@ func TestHTTPTransferDirectUploadFile(t *testing.T) {
 
 func TestHTTPTransferDirectUploadRespectsOverwriteFalse(t *testing.T) {
 	h := newTransferHandler(t)
-	target := filepath.Join(h.guard.DefaultRoot, "artifact.bin")
+	target := filepath.Join(h.guard.CurrentDir, "artifact.bin")
 	if err := os.WriteFile(target, []byte("old"), 0644); err != nil {
 		t.Fatal(err)
 	}
