@@ -12,9 +12,9 @@ func TestPrintStartupBanner(t *testing.T) {
 	text := out.String()
 
 	for _, want := range []string{
-		"MCP:       http://127.0.0.1:8765/mcp",
-		"Transfer:  http://127.0.0.1:8765/transfer",
-		`"Authorization": "Bearer secret-token"`,
+		"mcp: http://127.0.0.1:8765/mcp",
+		"transfer: http://127.0.0.1:8765/transfer",
+		`config: {"headers":{"Authorization":"Bearer secret-token"},"type":"http","url":"http://127.0.0.1:8765/mcp"}`,
 		"Remote Machine MCP Server",
 	} {
 		if !strings.Contains(text, want) {
@@ -29,9 +29,9 @@ func TestPrintStartupBannerWithVPS(t *testing.T) {
 	text := out.String()
 
 	for _, want := range []string{
-		"MCP:       http://154.37.220.171:8765/mcp",
-		"Transfer:  http://154.37.220.171:8765/transfer",
-		`"Authorization": "Bearer secret-token"`,
+		"mcp: http://154.37.220.171:8765/mcp",
+		"transfer: http://154.37.220.171:8765/transfer",
+		`config: {"headers":{"Authorization":"Bearer secret-token"},"type":"http","url":"http://154.37.220.171:8765/mcp"}`,
 		"make sure port 8765 is reachable",
 	} {
 		if !strings.Contains(text, want) {

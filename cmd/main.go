@@ -3,8 +3,8 @@ package main
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"flag"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -70,17 +70,18 @@ func printStartupBanner(w io.Writer, listen, port, path, transferPath, authToken
 	mcpURL := baseURL + path
 	transferURL := baseURL + transferPath
 
-	logo := `  __  __  ____  ___   ___ _ __ ___   ___   ___
- |  \/  |/ ___|/ _ \ / __| '_ \` + "`" + ` _ \ / _ \ / _ \
- | |\/| | |   | |_| | (__| | | | | | | |_| | (_) |
- |_|  |_|_|    \___/ \___|_| |_|_| |_|\___/ \___/
-`
-	fmt.Fprintf(w, "\n%s\n", logo)
-	fmt.Fprintf(w, "  Remote Machine MCP Server\n")
-	fmt.Fprintf(w, "  ───────────────────────────────────────\n\n")
-	fmt.Fprintf(w, "  Endpoints:\n")
-	fmt.Fprintf(w, "    MCP:       %s\n", mcpURL)
-	fmt.Fprintf(w, "    Transfer:  %s\n\n", transferURL)
+	logo := `█▄▄▄▄ ▄███▄   █▀▄▀█ ████▄    ▄▄▄▄▀ ▄███▄   █▀▄▀█ ██   ▄█▄     ▄  █ ▄█    ▄   ▄███▄   █▀▄▀█ ▄█▄    █ ▄▄  
+█  ▄▀ █▀   ▀  █ █ █ █   █ ▀▀▀ █    █▀   ▀  █ █ █ █ █  █▀ ▀▄  █   █ ██     █  █▀   ▀  █ █ █ █▀ ▀▄  █   █ 
+█▀▀▌  ██▄▄    █ ▄ █ █   █     █    ██▄▄    █ ▄ █ █▄▄█ █   ▀  ██▀▀█ ██ ██   █ ██▄▄    █ ▄ █ █   ▀  █▀▀▀  
+█  █  █▄   ▄▀ █   █ ▀████    █     █▄   ▄▀ █   █ █  █ █▄  ▄▀ █   █ ▐█ █ █  █ █▄   ▄▀ █   █ █▄  ▄▀ █     
+  █   ▀███▀      █          ▀      ▀███▀      █     █ ▀███▀     █   ▐ █  █ █ ▀███▀      █  ▀███▀   █    
+ ▀              ▀                            ▀     █           ▀      █   ██           ▀            ▀   
+                                                  ▀`
+	fmt.Fprintf(w, "\n%s\n\n", logo)
+	fmt.Fprintf(w, "Remote Machine MCP Server\n")
+	fmt.Fprintf(w, "----------------------------------------\n")
+	fmt.Fprintf(w, "mcp: %s\n", mcpURL)
+	fmt.Fprintf(w, "transfer: %s\n", transferURL)
 
 	config := map[string]any{
 		"type": "http",
@@ -89,12 +90,11 @@ func printStartupBanner(w io.Writer, listen, port, path, transferPath, authToken
 			"Authorization": "Bearer " + authToken,
 		},
 	}
-	configJSON, _ := json.MarshalIndent(config, "", "  ")
-	fmt.Fprintf(w, "  MCP Client Configuration:\n")
-	fmt.Fprintf(w, "  %s\n\n", string(configJSON))
+	configJSON, _ := json.Marshal(config)
+	fmt.Fprintf(w, "config: %s\n", string(configJSON))
 
 	if vpsIP != "" && (listen == "127.0.0.1" || listen == "::1") {
-		fmt.Fprintf(w, "  Note: server is listening on %s, make sure port %s is reachable\n", listen, port)
-		fmt.Fprintf(w, "  (bind to 0.0.0.0 or set up an SSH tunnel).\n\n")
+		fmt.Fprintf(w, "note: server is listening on %s, make sure port %s is reachable\n", listen, port)
+		fmt.Fprintf(w, "(bind to 0.0.0.0 or set up an SSH tunnel)\n")
 	}
 }
