@@ -8,12 +8,11 @@ import (
 
 func TestPrintStartupBanner(t *testing.T) {
 	var out bytes.Buffer
-	printStartupBanner(&out, "127.0.0.1", "8765", "/mcp", "/transfer", "secret-token", "")
+	printStartupBanner(&out, "127.0.0.1", "8765", "/mcp", "secret-token", "")
 	text := out.String()
 
 	for _, want := range []string{
 		"mcp: http://127.0.0.1:8765/mcp",
-		"transfer: http://127.0.0.1:8765/transfer",
 		`config: {"headers":{"Authorization":"Bearer secret-token"},"type":"http","url":"http://127.0.0.1:8765/mcp"}`,
 		"Remote Machine MCP Server",
 	} {
@@ -25,12 +24,11 @@ func TestPrintStartupBanner(t *testing.T) {
 
 func TestPrintStartupBannerWithVPS(t *testing.T) {
 	var out bytes.Buffer
-	printStartupBanner(&out, "127.0.0.1", "8765", "/mcp", "/transfer", "secret-token", "154.37.220.171")
+	printStartupBanner(&out, "127.0.0.1", "8765", "/mcp", "secret-token", "154.37.220.171")
 	text := out.String()
 
 	for _, want := range []string{
 		"mcp: http://154.37.220.171:8765/mcp",
-		"transfer: http://154.37.220.171:8765/transfer",
 		`config: {"headers":{"Authorization":"Bearer secret-token"},"type":"http","url":"http://154.37.220.171:8765/mcp"}`,
 		"make sure port 8765 is reachable",
 	} {
@@ -42,7 +40,7 @@ func TestPrintStartupBannerWithVPS(t *testing.T) {
 
 func TestPrintStartupBannerNoWarningOnWildcard(t *testing.T) {
 	var out bytes.Buffer
-	printStartupBanner(&out, "0.0.0.0", "8765", "/mcp", "/transfer", "secret-token", "154.37.220.171")
+	printStartupBanner(&out, "0.0.0.0", "8765", "/mcp", "secret-token", "154.37.220.171")
 	if strings.Contains(out.String(), "make sure port") {
 		t.Fatalf("should not warn when listen is 0.0.0.0:\n%s", out.String())
 	}

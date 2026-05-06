@@ -11,9 +11,8 @@ import (
 )
 
 type Registry struct {
-	guard     *filesystem.Guard
-	transfers *TransferManager
-	tools     map[string]mcp.Tool
+	guard *filesystem.Guard
+	tools map[string]mcp.Tool
 }
 
 type remoteContextTool struct {
@@ -21,22 +20,24 @@ type remoteContextTool struct {
 	prefix string
 }
 
-func NewRegistry(guard *filesystem.Guard, transfers *TransferManager) *Registry {
-	if transfers == nil {
-		transfers = NewTransferManager()
-	}
+func NewRegistry(guard *filesystem.Guard) *Registry {
 	sessions := NewSessionManager()
-	transferService := NewTransferService(guard, transfers, "/transfer")
-	r := &Registry{guard: guard, transfers: transfers, tools: map[string]mcp.Tool{}}
+	r := &Registry{guard: guard, tools: map[string]mcp.Tool{}}
 	prefix := remoteToolDescriptionPrefix(guard)
 	for _, tool := range []mcp.Tool{
+		ListDir{guard: guard},
+		ListFiles{guard: guard},
+		ReadFile{guard: guard},
+		WriteFile{guard: guard},
+		EditFile{guard: guard},
+		CopyPath{guard: guard},
+		MovePath{guard: guard},
+		ViewImage{guard: guard},
 		ShellCommand{guard: guard},
 		Shell{guard: guard},
 		ExecCommand{guard: guard, sessions: sessions},
 		WriteStdin{sessions: sessions},
 		ApplyPatch{guard: guard},
-		PrepareUpload{service: transferService},
-		PrepareDownload{service: transferService},
 	} {
 		r.tools[tool.Name()] = remoteContextTool{tool: tool, prefix: prefix}
 	}
@@ -77,7 +78,7 @@ func (r *Registry) ServerInstructions() string {
 	}
 	hostname, _ := os.Hostname()
 	return fmt.Sprintf(
-		"You are connected to a remote machine MCP server, not the user's local machine. Remote host=%q os=%s arch=%s pwd=%q home=%q path_separator=%q path_list_separator=%q default_shell=%q. This server exposes authenticated HTTP transfer endpoints rooted at /transfer. Prefer the simple file endpoints /transfer/download?file_path=... and /transfer/upload?file_path=...&overwrite=true for normal file transfer because curl or wget can use them directly and MCP tools are not the path for large byte streams. If the user wants to transfer a directory, first use remote shell commands to create an archive that fits the remote OS and installed tools, preferably zip, then transfer that archive as a file. The prepare_upload and prepare_download tools remain available for advanced resumable workflows, but simple direct file transfer is preferred. All shell commands and file paths refer to the remote machine. If workdir is omitted, commands run in the current directory shown above.",
+		"You are connected to a remote machine MCP server, not the user's local machine. Remote host=%q os=%s arch=%s pwd=%q home=%q path_separator=%q path_list_separator=%q default_shell=%q. All shell commands and file paths refer to the remote machine. Use the built-in file tools for listing, reading, writing, editing, copying, moving, and viewing files inside allowed roots. If workdir is omitted, commands run in the current directory shown above.",
 		hostname,
 		runtime.GOOS,
 		runtime.GOARCH,

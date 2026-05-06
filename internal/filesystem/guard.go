@@ -4,7 +4,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 )
 
@@ -28,9 +27,6 @@ func (g *Guard) Resolve(path string, allowDir bool) (string, error) {
 		return "", errors.New("path is required")
 	}
 	path = g.expandHome(path)
-	if runtime.GOOS != "windows" && looksLikeWindowsPath(path) {
-		return "", errors.New("path looks like a Windows path but this server is not Windows; omit workdir or use a remote path such as " + g.CurrentDir)
-	}
 	abs := path
 	if !filepath.IsAbs(abs) {
 		abs = filepath.Join(g.CurrentDir, abs)
@@ -55,13 +51,6 @@ func (g *Guard) expandHome(path string) string {
 		return filepath.Join(g.HomeDir, path[2:])
 	}
 	return path
-}
-
-func looksLikeWindowsPath(path string) bool {
-	if len(path) >= 3 && path[1] == ':' && (path[2] == '\\' || path[2] == '/') {
-		return true
-	}
-	return strings.HasPrefix(path, `\\`)
 }
 
 func (g *Guard) ResolveDir(path string) (string, error) {

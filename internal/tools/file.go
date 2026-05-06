@@ -31,19 +31,26 @@ func (ListDir) InputSchema() map[string]any {
 	return objectSchema(map[string]any{"dir_path": stringSchema("Directory path to list."), "offset": numberSchema("1-indexed entry number to start from."), "limit": numberSchema("Maximum entries to return."), "depth": numberSchema("Maximum directory depth to traverse.")}, []string{"dir_path"})
 }
 func (t ListDir) Call(args map[string]any) (string, any, error) {
-	entries, err := listEntries(t.guard, stringArg(args, "dir_path", ""), intArg(args, "depth", 1), intArg(args, "limit", 200))
-	if err != nil {
-		return "", nil, err
-	}
 	offset := intArg(args, "offset", 1)
 	if offset < 1 {
 		offset = 1
+	}
+	limit := intArg(args, "limit", 200)
+	if limit <= 0 {
+		limit = 200
+	}
+	entries, err := listEntries(t.guard, stringArg(args, "dir_path", ""), intArg(args, "depth", 1), offset+limit-1)
+	if err != nil {
+		return "", nil, err
 	}
 	start := offset - 1
 	if start > len(entries) {
 		start = len(entries)
 	}
 	entries = entries[start:]
+	if len(entries) > limit {
+		entries = entries[:limit]
+	}
 	lines := make([]string, 0, len(entries))
 	for i, e := range entries {
 		lines = append(lines, fmt.Sprintf("%d. [%s] %s", offset+i, e["type"], e["relative"]))
@@ -53,7 +60,7 @@ func (t ListDir) Call(args map[string]any) (string, any, error) {
 
 func (ListFiles) Name() string { return "list_files" }
 func (ListFiles) Description() string {
-	return "List files under an allowed root. This is a machine-agent convenience tool."
+	return "List files under a directory. This is a machine-agent convenience tool."
 }
 func (ListFiles) InputSchema() map[string]any {
 	return objectSchema(map[string]any{"path": stringSchema("Directory path."), "recursive": boolSchema("Recurse into subdirectories."), "max_entries": numberSchema("Maximum entries to return.")}, []string{"path"})
@@ -118,7 +125,7 @@ func listEntries(guard *filesystem.Guard, dir string, depth, limit int) ([]map[s
 }
 
 func (ReadFile) Name() string        { return "read_file" }
-func (ReadFile) Description() string { return "Read a file under an allowed root." }
+func (ReadFile) Description() string { return "Read a file." }
 func (ReadFile) InputSchema() map[string]any {
 	return objectSchema(map[string]any{"path": stringSchema("File path."), "offset": numberSchema("Byte offset."), "limit_bytes": numberSchema("Maximum bytes to read.")}, []string{"path"})
 }
@@ -148,7 +155,7 @@ func (t ReadFile) Call(args map[string]any) (string, any, error) {
 }
 
 func (WriteFile) Name() string        { return "write_file" }
-func (WriteFile) Description() string { return "Create or overwrite a file under an allowed root." }
+func (WriteFile) Description() string { return "Create or overwrite a file." }
 func (WriteFile) InputSchema() map[string]any {
 	return objectSchema(map[string]any{"path": stringSchema("File path."), "content": stringSchema("File content."), "create_dirs": boolSchema("Create parent directories."), "overwrite": boolSchema("Overwrite existing file.")}, []string{"path", "content"})
 }
@@ -178,7 +185,7 @@ func (t WriteFile) Call(args map[string]any) (string, any, error) {
 }
 
 func (EditFile) Name() string        { return "edit_file" }
-func (EditFile) Description() string { return "Replace exact text in a file under an allowed root." }
+func (EditFile) Description() string { return "Replace exact text in a file." }
 func (EditFile) InputSchema() map[string]any {
 	return objectSchema(map[string]any{"path": stringSchema("File path."), "old_text": stringSchema("Exact text to replace."), "new_text": stringSchema("Replacement text."), "replace_all": boolSchema("Replace all occurrences.")}, []string{"path", "old_text", "new_text"})
 }
@@ -217,7 +224,7 @@ func (t EditFile) Call(args map[string]any) (string, any, error) {
 
 func (CopyPath) Name() string { return "copy" }
 func (CopyPath) Description() string {
-	return "Copy a file or directory between allowed paths."
+	return "Copy a file or directory."
 }
 func (CopyPath) InputSchema() map[string]any {
 	return objectSchema(map[string]any{
@@ -248,7 +255,7 @@ func (t CopyPath) Call(args map[string]any) (string, any, error) {
 
 func (MovePath) Name() string { return "move" }
 func (MovePath) Description() string {
-	return "Move or rename a file or directory between allowed paths."
+	return "Move or rename a file or directory."
 }
 func (MovePath) InputSchema() map[string]any {
 	return objectSchema(map[string]any{

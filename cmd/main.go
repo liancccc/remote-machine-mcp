@@ -19,6 +19,7 @@ func main() {
 	listen := flag.String("listen", "127.0.0.1", "HTTP listen address")
 	port := flag.String("port", "8765", "HTTP listen port")
 	path := flag.String("path", "/mcp", "HTTP MCP endpoint path")
+	token := flag.String("token", "", "bearer token for HTTP auth; required in HTTP mode")
 	vps := flag.String("vps", "", "public IP or hostname of the VPS/VM for generating MCP client config")
 	flag.Parse()
 
@@ -27,26 +28,26 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	transfers := tools.NewTransferManager()
-	registry := tools.NewRegistry(roots, transfers)
+	registry := tools.NewRegistry(roots)
 	server := mcp.NewServer("remote-machine-mcp", "0.2.0", registry)
 	if *stdio {
 		server.Run(os.Stdin, os.Stdout)
 		return
 	}
-	transferPath := "/transfer"
-	authToken, err := randomToken()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "generate auth token:", err)
-		os.Exit(1)
+	authToken := *token
+	if authToken == "" {
+		var err error
+		authToken, err = randomToken()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "generate auth token:", err)
+			os.Exit(1)
+		}
 	}
-	printStartupBanner(os.Stderr, *listen, *port, *path, transferPath, authToken, *vps)
+	printStartupBanner(os.Stderr, *listen, *port, *path, authToken, *vps)
 	if err := server.ListenAndServeHTTP(mcp.HTTPOptions{
-		Addr:            *listen + ":" + *port,
-		Path:            *path,
-		AuthToken:       authToken,
-		TransferPath:    transferPath,
-		TransferHandler: tools.NewHTTPTransferHandlerWithManager(roots, transfers),
+		Addr:      *listen + ":" + *port,
+		Path:      *path,
+		AuthToken: authToken,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -61,14 +62,13 @@ func randomToken() (string, error) {
 	return hex.EncodeToString(b[:]), nil
 }
 
-func printStartupBanner(w io.Writer, listen, port, path, transferPath, authToken, vpsIP string) {
+func printStartupBanner(w io.Writer, listen, port, path, authToken, vpsIP string) {
 	publicHost := listen
 	if vpsIP != "" {
 		publicHost = vpsIP
 	}
 	baseURL := fmt.Sprintf("http://%s:%s", publicHost, port)
 	mcpURL := baseURL + path
-	transferURL := baseURL + transferPath
 
 	logo := `█▄▄▄▄ ▄███▄   █▀▄▀█ ████▄    ▄▄▄▄▀ ▄███▄   █▀▄▀█ ██   ▄█▄     ▄  █ ▄█    ▄   ▄███▄   █▀▄▀█ ▄█▄    █ ▄▄  
 █  ▄▀ █▀   ▀  █ █ █ █   █ ▀▀▀ █    █▀   ▀  █ █ █ █ █  █▀ ▀▄  █   █ ██     █  █▀   ▀  █ █ █ █▀ ▀▄  █   █ 
@@ -81,7 +81,6 @@ func printStartupBanner(w io.Writer, listen, port, path, transferPath, authToken
 	fmt.Fprintf(w, "Remote Machine MCP Server\n")
 	fmt.Fprintf(w, "----------------------------------------\n")
 	fmt.Fprintf(w, "mcp: %s\n", mcpURL)
-	fmt.Fprintf(w, "transfer: %s\n", transferURL)
 
 	config := map[string]any{
 		"type": "http",

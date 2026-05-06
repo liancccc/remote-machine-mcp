@@ -2,6 +2,7 @@ package tools
 
 import (
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 
@@ -10,7 +11,7 @@ import (
 
 func TestRegistryToolDescriptionsIncludeRemoteContext(t *testing.T) {
 	guard := &filesystem.Guard{CurrentDir: "/remote/pwd"}
-	registry := NewRegistry(guard, NewTransferManager())
+	registry := NewRegistry(guard)
 
 	for _, tool := range registry.Tools() {
 		description := tool.Description()
@@ -32,7 +33,7 @@ func TestRegistryToolDescriptionsIncludeRemoteContext(t *testing.T) {
 
 func TestRegistryServerInstructionsIncludeRemoteContext(t *testing.T) {
 	guard := &filesystem.Guard{CurrentDir: "/remote/pwd", HomeDir: "/home/tester"}
-	registry := NewRegistry(guard, NewTransferManager())
+	registry := NewRegistry(guard)
 	text := registry.ServerInstructions()
 
 	for _, want := range []string{
@@ -44,17 +45,42 @@ func TestRegistryServerInstructionsIncludeRemoteContext(t *testing.T) {
 		`home="/home/tester"`,
 		"path_separator",
 		"default_shell",
-		"/transfer",
-		"/transfer/download?file_path=",
-		"/transfer/upload?file_path=",
-		"first use remote shell commands to create an archive",
-		"preferably zip",
-		"simple direct file transfer is preferred",
 		"All shell commands and file paths refer to the remote machine",
+		"listing, reading, writing, editing, copying, moving, and viewing files",
 		"If workdir is omitted, commands run in the current directory shown above",
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("server instructions missing %q:\n%s", want, text)
+		}
+	}
+}
+
+func TestRegistryIncludesFileAndShellTools(t *testing.T) {
+	guard := &filesystem.Guard{CurrentDir: "/remote/pwd"}
+	registry := NewRegistry(guard)
+
+	var names []string
+	for _, tool := range registry.Tools() {
+		names = append(names, tool.Name())
+	}
+
+	for _, want := range []string{
+		"list_dir",
+		"list_files",
+		"read_file",
+		"write_file",
+		"edit_file",
+		"copy",
+		"move",
+		"view_image",
+		"shell_command",
+		"shell",
+		"exec_command",
+		"write_stdin",
+		"apply_patch",
+	} {
+		if !slices.Contains(names, want) {
+			t.Fatalf("registry missing tool %q: %v", want, names)
 		}
 	}
 }
